@@ -17,6 +17,7 @@
 from utils.providers.model_config import ModelConfig
 from utils.providers.openai_provider import OpenAIProvider
 from utils.providers.anthropic_provider import AnthropicProvider
+from utils.providers.local_transformers_provider import LocalTransformersProvider
 from utils.providers.relay_provider import RelayProvider
 
 
@@ -78,5 +79,16 @@ AVAILABLE_MODELS = [
         name="gpt-5-2",
         provider_classes=[RelayProvider],
         description="GPT-5.2 flagship model (Dec 2025) - Note the name is different from the OpenAI model",
+    ),
+    # Local transformers models (no endpoint; loads from local HF cache)
+    ModelConfig(
+        name="Qwen/Qwen3-VL-8B-Instruct",
+        provider_classes=[LocalTransformersProvider],
+        description="Qwen3-VL 8B Instruct (local transformers, local_files_only)",
+    ),
+    ModelConfig(
+        name="meta-llama/Meta-Llama-3-8B-Instruct",
+        provider_classes=[LocalTransformersProvider],
+        description="Meta-Llama 3 8B Instruct (local transformers, local_files_only)",
     ),
 ]

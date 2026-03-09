@@ -205,10 +205,17 @@ def run_fuser_problem(
         )
 
     # Determine provider-specific API key env var
-    requires_api_key = provider_class_name not in ("RelayProvider", "")
-    key_env_var = "OPENAI_API_KEY"
-    if provider_class_name == "AnthropicProvider":
-        key_env_var = "ANTHROPIC_API_KEY"
+    provider_to_env_var = {
+        "OpenAIProvider": "OPENAI_API_KEY",
+        "AnthropicProvider": "ANTHROPIC_API_KEY",
+    }
+    provider_to_label = {
+        "OpenAIProvider": "OpenAI",
+        "AnthropicProvider": "Anthropic",
+    }
+    no_key_providers = {"RelayProvider", "LocalTransformersProvider", ""}
+    requires_api_key = provider_class_name not in no_key_providers
+    key_env_var = provider_to_env_var.get(provider_class_name, "OPENAI_API_KEY")
 
     original_env_key = os.environ.get(key_env_var)
     temp_key_set = False
@@ -218,9 +225,7 @@ def run_fuser_problem(
             os.environ[key_env_var] = user_api_key.strip()
             temp_key_set = True
         elif not original_env_key:
-            provider_label = (
-                "OpenAI" if provider_class_name == "OpenAIProvider" else "Anthropic"
-            )
+            provider_label = provider_to_label.get(provider_class_name, "OpenAI")
             return RunArtifacts(
                 status_md=f"❌ Provide a {provider_label} API key (UI input or {key_env_var} environment variable).",
                 summary_md="*No summary available.*",
@@ -797,10 +802,10 @@ Select a KernelBench problem, generate fusion-ready PyTorch subgraphs, and downl
 
                 api_key_input = gr.Textbox(
                     label="🔑 API Key (optional)",
-                    placeholder="sk-... or anthropic key",
+                    placeholder="sk-... or sk-ant-...",
                     type="password",
                     value="",
-                    info="Used only for this session; falls back to environment variable. Not needed for Relay provider.",
+                    info="Used only for this session; falls back to OPENAI_API_KEY/ANTHROPIC_API_KEY. Not needed for Relay or local transformers providers.",
                 )
 
                 problem_dropdown = gr.Dropdown(

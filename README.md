@@ -32,7 +32,7 @@ Every stage writes artifacts to a run directory under `.optimize/<run_id>/`, inc
   - **XPU**: Intel GPU with oneAPI support (Arc, Data Center GPUs, or integrated Xe graphics)
 - Triton (installed separately: `pip install triton` or nightly from source)
 - PyTorch (https://pytorch.org/get-started/locally/)
-- LLM provider ([OpenAI](https://openai.com/api/), [Anthropic](https://www.anthropic.com/), or a self-hosted relay)
+- LLM provider ([OpenAI](https://openai.com/api/), [Anthropic](https://www.anthropic.com/), local Hugging Face transformers models, or a self-hosted relay)
 
 ### Install
 ```bash
@@ -74,7 +74,7 @@ LOG_LEVEL=INFO                # logging level
 ```
 
 #### LLM Providers
-KernelAgent currently supports OpenAI and Anthropic out-of-the-box. You can also use a custom OpenAI endpoint.
+KernelAgent currently supports OpenAI, Anthropic, local transformers models, and relay out-of-the-box.
 These can be configured in `.env` or via environment variables.
 ```bash
 # OpenAI (models like `o4-mini`, `gpt-5`)
@@ -86,6 +86,54 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Relay configuration for self-hosted gateways
 LLM_RELAY_URL=http://127.0.0.1:11434
 LLM_RELAY_TIMEOUT_S=120
+
+# Local transformers (no endpoint; optional override path)
+# OPENAI_MODEL=Qwen/Qwen3-VL-8B-Instruct
+# LOCAL_MODEL_PATH=/home/danz/.cache/huggingface/hub/models--Qwen--Qwen3-VL-8B-Instruct/snapshots/<snapshot_id>
+```
+
+For local model inference, install `transformers` + `torch` and use a model name
+that maps to the local provider (for example `Qwen/Qwen3-VL-8B-Instruct`), or
+set `LOCAL_MODEL_PATH` to a specific local model directory. Local mode uses
+`local_files_only=True` and does not call remote endpoints.
+
+#### Local HF model switcher (recommended for quick testing)
+Use `scripts/local_hf_model.py` to switch models by HF id without re-exporting env vars.
+It resolves snapshots from the default Hugging Face cache (`~/.cache/huggingface/hub`)
+and can download missing models on demand.
+
+```bash
+# 1) Smoke test (no endpoint)
+python scripts/local_hf_model.py \
+  --model-id Qwen/Qwen3-VL-8B-Instruct \
+  --download-if-missing \
+  smoke \
+  --prompt "Say hello from a local model in one sentence."
+
+# 2) Auto-route KernelBench problem using selected local HF model for all stages
+python scripts/local_hf_model.py \
+  --model-id Qwen/Qwen3-VL-8B-Instruct \
+  --download-if-missing \
+  autoroute \
+  --problem /abs/path/to/KernelBench/level1/19_ReLU.py \
+  --verify \
+  --no-router-cache
+
+# 3) Manual pipeline (extract -> dispatch -> compose) with same local model
+python scripts/local_hf_model.py \
+  --model-id Qwen/Qwen3-VL-8B-Instruct \
+  --download-if-missing \
+  pipeline \
+  --problem /abs/path/to/problem.py \
+  --dispatch-jobs auto \
+  --verify
+
+# 4) Direct TritonKernelAgent run (problem description string)
+python scripts/local_hf_model.py \
+  --model-id Qwen/Qwen3-VL-8B-Instruct \
+  --download-if-missing \
+  direct \
+  --problem-description "Implement ReLU over a contiguous 1D tensor of length 1024"
 ```
 
 More knobs live in `triton_kernel_agent/agent.py` and `Fuser/config.py`.

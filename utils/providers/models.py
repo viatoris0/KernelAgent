@@ -14,6 +14,7 @@
 
 """Model registry and configuration for KernelAgent."""
 
+import os
 from typing import Type
 
 from .base import BaseProvider
@@ -69,6 +70,29 @@ def get_model_provider(
     """
     model_name_to_config = _get_model_name_to_config()
     if model_name not in model_name_to_config:
+        # Allow arbitrary HF model IDs when explicitly using local transformers.
+        if preferred_provider is not None and preferred_provider.__name__ == (
+            "LocalTransformersProvider"
+        ):
+            provider = _get_or_create_provider(preferred_provider)
+            if provider.is_available():
+                return provider
+            raise ValueError(
+                f"LocalTransformersProvider is not available for model '{model_name}'. "
+                "Install transformers + torch and ensure local weights are present."
+            )
+        # Also allow arbitrary model IDs when LOCAL_MODEL_PATH is set in env.
+        local_model_path = os.getenv("LOCAL_MODEL_PATH")
+        if local_model_path:
+            from .local_transformers_provider import LocalTransformersProvider
+
+            provider = _get_or_create_provider(LocalTransformersProvider)
+            if provider.is_available():
+                return provider
+            raise ValueError(
+                f"LOCAL_MODEL_PATH is set, but local transformers provider is unavailable "
+                f"for model '{model_name}'. Install transformers + torch."
+            )
         available = list(model_name_to_config.keys())
         raise ValueError(
             f"Model '{model_name}' not found. Available models: {available}"

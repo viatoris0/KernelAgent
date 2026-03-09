@@ -140,9 +140,10 @@ class TritonKernelUI:
 
         # For providers that require a key, check availability
         if key_env_var and not (api_key or env_api_key):
-            provider_label = (
-                "OpenAI" if key_env_var == "OPENAI_API_KEY" else "Anthropic"
-            )
+            provider_label = {
+                "OPENAI_API_KEY": "OpenAI",
+                "ANTHROPIC_API_KEY": "Anthropic",
+            }.get(key_env_var, "API")
             status = f"❌ Please provide a {provider_label} API key or set {key_env_var} in your environment/.env."
             return status, "", "", "", "", ""
 
@@ -165,11 +166,7 @@ class TritonKernelUI:
 
             # If provider failed to initialize, return a clear error immediately
             if not getattr(agent, "provider", None):
-                provider_label = (
-                    ("OpenAI" if key_env_var == "OPENAI_API_KEY" else "Anthropic")
-                    if key_env_var
-                    else "Relay"
-                )
+                provider_label = provider_cls().name
                 details = getattr(agent, "_provider_error", "Provider unavailable")
                 status = (
                     f"❌ Provider initialization failed for {provider_label}: {details}"
@@ -634,6 +631,15 @@ def _create_app() -> gr.Blocks:
                     ),
                 )
             else:
+                if provider_class_name == "LocalTransformersProvider":
+                    return gr.update(
+                        label="🔑 API Key (Not required for local transformers)",
+                        placeholder="Local models run directly from disk/HF cache; no key required.",
+                        info=(
+                            "Uses transformers with local_files_only=True. "
+                            "Set LOCAL_MODEL_PATH to force a specific local model directory."
+                        ),
+                    )
                 return gr.update(
                     label="🔑 API Key (Not required for Relay)",
                     placeholder="Relay provider uses local server; no key required.",
@@ -705,7 +711,8 @@ def _create_app() -> gr.Blocks:
 
         **🔧 Configuration:**
         - Provide your OpenAI or Anthropic API key above (not saved; session-only)
-        - Or set the appropriate env var in `.env` (OPENAI_API_KEY or ANTHROPIC_API_KEY)
+        - Or set the appropriate env var in `.env` (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`)
+        - Local transformers provider does not require an API key (`LOCAL_MODEL_PATH` is optional)
         - The key is only used for this session and automatically cleared
         """
         )
@@ -727,7 +734,7 @@ def main():
     is_meta_devserver = os.path.exists(meta_keyfile)
 
     print("🚀 Starting Triton Kernel Agent UI...")
-    print("📝 Provide your OpenAI API key in the UI or configure in .env file")
+    print("📝 Provide your API key in the UI or configure in .env file")
 
     if is_meta_devserver:
         # Meta devserver configuration
