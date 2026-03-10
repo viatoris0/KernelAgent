@@ -8,6 +8,8 @@ MODE="smoke" ## options: smoke|autoroute|pipeline|direct
 ## smoke is just quick one shot test for hf local 
 
 
+## workers and jobs below are set to 1 since running on just 1 gpu with multiple threads/processes can slow stuff down
+
 case "${MODE}" in
   smoke)
     uv run python scripts/local_hf_model.py \
