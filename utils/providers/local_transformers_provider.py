@@ -79,6 +79,21 @@ class LocalTransformersProvider(BaseProvider):
         if has_accelerate:
             model_kwargs["device_map"] = "auto"
 
+        def _build_load_error(err: Exception) -> RuntimeError:
+            msg = str(err)
+            base = (
+                f"Failed to load local model '{model_name}' from '{resolved}' "
+                f"with AutoModelForCausalLM. Underlying error: {msg}"
+            )
+            if "requires `accelerate`" in msg or "requires accelerate" in msg:
+                return RuntimeError(base + " Install accelerate: pip install accelerate")
+            if any(k in msg.lower() for k in ["vision", "image", "video", "processor"]):
+                return RuntimeError(
+                    base
+                    + " This simple provider is text-only; VLMs may require a processor-specific path."
+                )
+            return RuntimeError(base)
+
         try:
             model = AutoModelForCausalLM.from_pretrained(resolved, **model_kwargs)
         except Exception as e:
@@ -92,19 +107,9 @@ class LocalTransformersProvider(BaseProvider):
                         resolved, **fallback_kwargs
                     )
                 except Exception:
-                    raise RuntimeError(
-                        f"Failed to load '{resolved}' with AutoModelForCausalLM. "
-                        "This simple local provider currently supports text-generation "
-                        "causal LM models. Vision-language models may require a "
-                        "processor-specific provider path."
-                    ) from e
+                    raise _build_load_error(e) from e
             else:
-                raise RuntimeError(
-                    f"Failed to load '{resolved}' with AutoModelForCausalLM. "
-                    "This simple local provider currently supports text-generation "
-                    "causal LM models. Vision-language models may require a "
-                    "processor-specific provider path."
-                ) from e
+                raise _build_load_error(e) from e
 
         # Without accelerate/device_map, explicitly move the model to one device.
         if not has_accelerate:

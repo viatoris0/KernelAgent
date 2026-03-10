@@ -18,6 +18,7 @@ import tempfile
 import shutil
 import multiprocessing as mp
 import queue
+import os
 from pathlib import Path
 from typing import Any
 from datetime import datetime
@@ -65,6 +66,12 @@ class WorkerManager:
         self.target_platform = target_platform
         self.no_cusolver = no_cusolver
         self.test_timeout_s = test_timeout_s
+        self._use_spawn_start_method = self._should_use_spawn_start_method()
+        self._mp_ctx = (
+            mp.get_context("spawn")
+            if self._use_spawn_start_method
+            else mp.get_context()
+        )
 
         # Setup logging
         if log_dir is None:
@@ -78,12 +85,33 @@ class WorkerManager:
         self.workers_dir.mkdir(exist_ok=True, parents=True)
 
         # Setup multiprocessing
-        self.success_event = mp.Event()  # Shared event to signal success
-        self.result_queue = mp.Queue()  # Queue for collecting results
+        self.success_event = self._mp_ctx.Event()  # Shared event to signal success
+        self.result_queue = self._mp_ctx.Queue()  # Queue for collecting results
         self.workers: list[mp.Process] = []
 
         # Setup logger
         self._setup_logging()
+        self.logger.info(
+            "Worker multiprocessing start method: %s",
+            "spawn" if self._use_spawn_start_method else self._mp_ctx.get_start_method(),
+        )
+
+    def _should_use_spawn_start_method(self) -> bool:
+        """
+        Use spawn only for local-transformers execution.
+
+        This avoids CUDA re-init errors in forked subprocesses while preserving
+        existing behavior for API-backed providers (OpenAI/Anthropic/Relay).
+        """
+        if os.getenv("LOCAL_MODEL_PATH"):
+            return True
+        try:
+            from utils.providers import get_model_provider
+
+            provider = get_model_provider(self.openai_model)
+            return provider.name == "local_transformers"
+        except Exception:
+            return False
 
     def _setup_logging(self):
         """Setup logging configuration."""
@@ -174,7 +202,7 @@ class WorkerManager:
                     self.test_timeout_s,
                 )
 
-                process = mp.Process(target=worker_process, args=args)
+                process = self._mp_ctx.Process(target=worker_process, args=args)
                 process.start()
                 self.workers.append(process)
                 self.logger.info(f"Started worker {i}")

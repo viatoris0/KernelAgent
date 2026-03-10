@@ -136,6 +136,22 @@ python scripts/local_hf_model.py \
   --problem-description "Implement ReLU over a contiguous 1D tensor of length 1024"
 ```
 
+If you prefer one wrapper script, use `test_hf.sh` with `MODE` and `MODEL_ID`:
+
+```bash
+# Smoke
+MODE=smoke MODEL_ID=Qwen/Qwen2-7B-Instruct bash test_hf.sh
+
+# Auto-route
+MODE=autoroute MODEL_ID=Qwen/Qwen2-7B-Instruct bash test_hf.sh
+
+# Pipeline
+MODE=pipeline MODEL_ID=Qwen/Qwen2-7B-Instruct bash test_hf.sh
+
+# Direct
+MODE=direct MODEL_ID=Qwen/Qwen2-7B-Instruct bash test_hf.sh
+```
+
 More knobs live in `triton_kernel_agent/agent.py` and `Fuser/config.py`.
 
 ## End-to-End Kernel Generation Workflows

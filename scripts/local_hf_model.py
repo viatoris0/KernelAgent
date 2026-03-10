@@ -96,6 +96,8 @@ def _build_parser() -> argparse.ArgumentParser:
     auto.add_argument("--verify", action="store_true", help="Run final verification")
     auto.add_argument("--no-router-cache", action="store_true")
     auto.add_argument("--dispatch-jobs", type=int, default=2)
+    auto.add_argument("--ka-workers", type=int, default=4)
+    auto.add_argument("--ka-rounds", type=int, default=10)
     auto.add_argument("--workers", type=int, default=4)
     auto.add_argument("--max-iters", type=int, default=5)
     auto.add_argument("--target-platform", default="cuda", choices=["cuda", "xpu"])
@@ -200,6 +202,10 @@ def main() -> int:
             args.model_id,
             "--dispatch-jobs",
             str(args.dispatch_jobs),
+            "--ka-workers",
+            str(args.ka_workers),
+            "--ka-rounds",
+            str(args.ka_rounds),
             "--workers",
             str(args.workers),
             "--max-iters",

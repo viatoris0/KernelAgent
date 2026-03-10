@@ -17,6 +17,7 @@
 import multiprocessing as mp
 import os
 import re
+import queue
 from logging import Logger
 from pathlib import Path
 
@@ -196,9 +197,12 @@ def _run_test_multiprocess(
     Returns:
         Tuple of (success, stdout, stderr)
     """
+    # Use spawn only for local-transformers mode to avoid CUDA fork issues.
+    mp_ctx = mp.get_context("spawn") if os.getenv("LOCAL_MODEL_PATH") else mp.get_context()
+
     # Create process to run the test
-    result_queue = mp.Queue()
-    process = mp.Process(
+    result_queue = mp_ctx.Queue()
+    process = mp_ctx.Process(
         target=_run_test_process,
         args=(test_file, workdir, result_queue),
     )
@@ -226,7 +230,7 @@ def _run_test_multiprocess(
                 "Test failed. Exit code: %s, stderr: %s", process.exitcode, stderr[:500]
             )
         return success, stdout, stderr
-    except mp.queues.Empty:
+    except queue.Empty:
         error_msg = (
             f"Test process ended without result. Exit code: {process.exitcode}. "
         )
